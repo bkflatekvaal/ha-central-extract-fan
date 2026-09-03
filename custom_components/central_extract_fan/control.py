@@ -23,9 +23,9 @@ def hysteresis_level(humidity: float | None, previous: int, medium: float, high:
     if humidity <= medium - hysteresis: return LEVEL_LOW
     return LEVEL_MEDIUM if humidity <= high - hysteresis else LEVEL_HIGH
 
-def effective_level(requested: int, manual: int | None, boost: bool, silent: bool, silent_max: int) -> tuple[int, str]:
+def effective_level(requested: int, manual: int | None, boost_level: int | None, silent: bool, silent_max: int) -> tuple[int, str]:
     """Apply precedence: boost, manual, then silent-capped automatic."""
-    if boost: return LEVEL_HIGH, "boost"
+    if boost_level is not None: return boost_level, "boost"
     if manual is not None: return manual, "manual"
     level = max(LEVEL_LOW, requested)
     return (silent_max, "humidity+silent") if silent and level > silent_max else (level, "humidity")

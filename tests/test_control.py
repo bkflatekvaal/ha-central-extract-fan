@@ -33,24 +33,24 @@ def test_unavailable_humidity_falls_back_low():
 
 def test_precedence_manual_boost_silent_auto():
     effective = control.effective_level
-    assert effective(3, None, False, True, 1) == (1, "humidity+silent")
-    assert effective(1, None, True, True, 1) == (3, "boost")
-    assert effective(3, 0, True, True, 1) == (3, "boost")
-    assert effective(1, 2, False, True, 1) == (2, "manual")
-    assert effective(3, None, False, False, 1) == (3, "humidity")
+    assert effective(3, None, None, True, 1) == (1, "humidity+silent")
+    assert effective(1, None, 3, True, 1) == (3, "boost")
+    assert effective(3, 0, 3, True, 1) == (3, "boost")
+    assert effective(1, 2, None, True, 1) == (2, "manual")
+    assert effective(3, None, None, False, 1) == (3, "humidity")
 
 def test_boost_returns_to_recalculated_auto_or_preserved_manual():
     effective = control.effective_level
-    assert effective(1, None, True, False, 2) == (3, "boost")
-    assert effective(1, None, False, False, 2) == (1, "humidity")
-    assert effective(2, None, True, False, 2) == (3, "boost")
-    assert effective(2, None, False, False, 2) == (2, "humidity")
-    assert effective(3, 1, True, False, 2) == (3, "boost")
-    assert effective(3, 1, False, False, 2) == (1, "manual")
-    assert effective(3, 0, True, False, 2) == (3, "boost")
-    assert effective(3, 0, False, False, 2) == (0, "manual")
-    assert effective(3, None, True, True, 1) == (3, "boost")
-    assert effective(3, None, False, True, 1) == (1, "humidity+silent")
+    assert effective(1, None, 3, False, 2) == (3, "boost")
+    assert effective(1, None, None, False, 2) == (1, "humidity")
+    assert effective(2, None, 2, False, 2) == (2, "boost")
+    assert effective(2, None, None, False, 2) == (2, "humidity")
+    assert effective(3, 1, 3, False, 2) == (3, "boost")
+    assert effective(3, 1, None, False, 2) == (1, "manual")
+    assert effective(3, 0, 2, False, 2) == (2, "boost")
+    assert effective(3, 0, None, False, 2) == (0, "manual")
+    assert effective(3, None, 2, True, 1) == (2, "boost")
+    assert effective(3, None, None, True, 1) == (1, "humidity+silent")
 
 def test_relay_transition_order():
     transition = control.relay_transition
@@ -79,7 +79,7 @@ def test_indicator_sync_decision():
 
 def test_silent_hours_are_optional_and_only_cap_auto():
     effective = control.effective_level
-    assert effective(3, None, False, False, 1) == (3, "humidity")
-    assert effective(3, None, False, True, 2) == (2, "humidity+silent")
-    assert effective(3, 2, False, True, 1) == (2, "manual")
-    assert effective(3, None, False, True, 0) == (0, "humidity+silent")
+    assert effective(3, None, None, False, 1) == (3, "humidity")
+    assert effective(3, None, None, True, 2) == (2, "humidity+silent")
+    assert effective(3, 2, None, True, 1) == (2, "manual")
+    assert effective(3, None, None, True, 0) == (0, "humidity+silent")

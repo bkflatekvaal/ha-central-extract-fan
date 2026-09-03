@@ -19,6 +19,7 @@ class ControllerState:
     control_source: str = "humidity"
     manual_level: int | None = None
     boost_until: datetime | None = None
+    boost_level: int | None = None
     humidity_fault: bool = False
     fan_fault: bool = False
     expected_rpm: float | None = None
@@ -50,9 +51,12 @@ class CentralExtractFanController:
         if self.cfg.get(CONF_RPM_SENSOR): self._schedule_settle()
         await self._sync_indicators(*channels_for_level(physical))
         await self.async_recalculate(False)
-    async def async_restore(self, manual, boost_until):
+    async def async_restore(self, manual, boost_until, boost_level=None):
         self.state.manual_level = manual
-        if boost_until and boost_until > dt_util.utcnow(): self.state.boost_until = boost_until; self._schedule_boost()
+        if boost_until and boost_until > dt_util.utcnow():
+            self.state.boost_until = boost_until
+            self.state.boost_level = boost_level if boost_level in (LEVEL_LOW, LEVEL_MEDIUM, LEVEL_HIGH) else LEVEL_HIGH
+            self._schedule_boost()
         await self.async_recalculate()
     async def async_shutdown(self):
         for unsub in self._unsubs: unsub()
@@ -89,7 +93,8 @@ class CentralExtractFanController:
         self.state.control_humidity, self.state.humidity_source, self.state.humidity_fault = humidity, source, humidity is None
         self.state.requested_level = hysteresis_level(humidity, self.state.requested_level, float(self.cfg.get(CONF_MEDIUM_THRESHOLD, DEFAULT_MEDIUM_THRESHOLD)), float(self.cfg.get(CONF_HIGH_THRESHOLD, DEFAULT_HIGH_THRESHOLD)), float(self.cfg.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)))
         silent_max = int(self.cfg.get(CONF_SILENT_MAX_LEVEL, DEFAULT_SILENT_MAX_LEVEL))
-        level, source_name = effective_level(self.state.requested_level, self.state.manual_level, self._boost_active(), self._silent_active(), silent_max)
+        active_boost_level = self.state.boost_level if self._boost_active() else None
+        level, source_name = effective_level(self.state.requested_level, self.state.manual_level, active_boost_level, self._silent_active(), silent_max)
         self.state.effective_level = level
         self.state.control_source = "fallback" if self.state.humidity_fault and source_name == "humidity" else source_name
         if apply_output and not self._outputs_match(level): await self._apply_level(level)
@@ -118,15 +123,20 @@ class CentralExtractFanController:
         if indicator_needs_update(state.state if state else None, turn_on): await self._set_switch(entity_id, turn_on)
     async def _set_switch(self, entity_id, turn_on): await self.hass.services.async_call("switch", "turn_on" if turn_on else "turn_off", {"entity_id": entity_id}, blocking=True)
     async def async_set_manual_level(self, level): self.state.manual_level = level; await self.async_recalculate()
-    async def async_start_boost(self):
-        self.state.boost_until = dt_util.utcnow() + timedelta(minutes=int(self.cfg.get(CONF_BOOST_DURATION, DEFAULT_BOOST_DURATION))); self._schedule_boost(); await self.async_recalculate()
+    async def async_start_boost(self, level=None, duration=None):
+        self.state.boost_level = level if level in (LEVEL_LOW, LEVEL_MEDIUM, LEVEL_HIGH) else LEVEL_HIGH
+        minutes = int(duration if duration is not None else self.cfg.get(CONF_BOOST_DURATION, DEFAULT_BOOST_DURATION))
+        self.state.boost_until = dt_util.utcnow() + timedelta(minutes=minutes); self._schedule_boost(); await self.async_recalculate()
     def _schedule_boost(self):
         if self._boost_cancel: self._boost_cancel()
         self._boost_cancel = async_call_later(self.hass, self.boost_remaining_seconds, self._boost_finished)
     async def async_cancel_boost(self):
         if self._boost_cancel: self._boost_cancel()
-        self._boost_cancel, self.state.boost_until = None, None; await self.async_recalculate()
-    async def _boost_finished(self, _now): self._boost_cancel, self.state.boost_until = None, None; await self.async_recalculate()
+        self._boost_cancel, self.state.boost_until, self.state.boost_level = None, None, None; await self.async_recalculate()
+    async def async_toggle_boost(self):
+        if self._boost_active(): await self.async_cancel_boost()
+        else: await self.async_start_boost()
+    async def _boost_finished(self, _now): self._boost_cancel, self.state.boost_until, self.state.boost_level = None, None, None; await self.async_recalculate()
     def _schedule_settle(self):
         if self._settle_cancel: self._settle_cancel()
         self._settle_cancel = async_call_later(self.hass, int(self.cfg.get(CONF_RPM_SETTLE_TIME, DEFAULT_RPM_SETTLE_TIME)), self._settle_finished)

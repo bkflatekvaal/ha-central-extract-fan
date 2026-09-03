@@ -255,3 +255,86 @@ def test_rpm_deviation_remains_live_while_fault_is_suppressed_during_settling():
     assert controller.state.expected_rpm == 470
     assert controller.state.rpm_deviation == 730
     assert controller.state.fan_fault is True
+
+
+def test_default_boost_is_always_high_and_explicit_medium_is_supported():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    asyncio.run(controller.async_start_boost())
+    assert controller.state.boost_level == control.LEVEL_HIGH
+    assert controller.state.effective_level == control.LEVEL_HIGH
+    asyncio.run(controller.async_start_boost(control.LEVEL_MEDIUM))
+    assert controller.state.boost_level == control.LEVEL_MEDIUM
+    assert controller.state.effective_level == control.LEVEL_MEDIUM
+
+
+def test_toggle_from_inactive_starts_high_and_active_toggle_cancels():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    asyncio.run(controller.async_toggle_boost())
+    assert controller.state.boost_level == control.LEVEL_HIGH
+    assert controller.state.effective_level == control.LEVEL_HIGH
+    asyncio.run(controller.async_toggle_boost())
+    assert controller.state.boost_level is None
+    assert controller.state.boost_until is None
+    assert controller.state.effective_level == control.LEVEL_LOW
+
+
+def test_default_boost_is_high_from_auto_medium_auto_low_and_manual_low():
+    for humidity, manual in (
+        (65, None),
+        (40, None),
+        (40, control.LEVEL_LOW),
+    ):
+        controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off", "sensor.humidity": str(humidity)})
+        controller.entry.data[const.CONF_HUMIDITY_SENSORS] = ["sensor.humidity"]
+        controller.state.manual_level = manual
+        asyncio.run(controller.async_start_boost())
+        assert controller.state.boost_level == control.LEVEL_HIGH
+        assert controller.state.effective_level == control.LEVEL_HIGH
+
+
+def test_explicit_medium_override_is_held_while_auto_changes():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off", "sensor.humidity": "40"})
+    controller.entry.data[const.CONF_HUMIDITY_SENSORS] = ["sensor.humidity"]
+    asyncio.run(controller.async_start_boost(control.LEVEL_MEDIUM))
+    _hass.states.values["sensor.humidity"] = "90"
+    asyncio.run(controller.async_recalculate())
+    assert controller.state.requested_level == control.LEVEL_HIGH
+    assert controller.state.effective_level == control.LEVEL_MEDIUM
+
+
+def test_cancel_and_expiry_return_to_current_underlying_state():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    controller.state.manual_level = control.LEVEL_LOW
+    asyncio.run(controller.async_start_boost(control.LEVEL_HIGH))
+    assert controller.state.effective_level == control.LEVEL_HIGH
+    asyncio.run(controller.async_cancel_boost())
+    assert controller.state.effective_level == control.LEVEL_LOW
+    controller.state.manual_level = None
+    asyncio.run(controller.async_start_boost(control.LEVEL_MEDIUM))
+    asyncio.run(controller._boost_finished(datetime.now(UTC)))
+    assert controller.state.effective_level == control.LEVEL_LOW
+
+
+def test_expiry_returns_to_current_auto_state():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off", "sensor.humidity": "40"})
+    controller.entry.data[const.CONF_HUMIDITY_SENSORS] = ["sensor.humidity"]
+    asyncio.run(controller.async_start_boost(control.LEVEL_MEDIUM))
+    _hass.states.values["sensor.humidity"] = "90"
+    asyncio.run(controller._boost_finished(datetime.now(UTC)))
+    assert controller.state.effective_level == control.LEVEL_HIGH
+
+
+def test_restore_active_boost_level_without_extending_and_ignore_expired():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    future = datetime.now(UTC) + timedelta(minutes=12)
+    asyncio.run(controller.async_restore(None, future, control.LEVEL_MEDIUM))
+    assert controller.state.boost_until == future
+    assert controller.state.boost_level == control.LEVEL_MEDIUM
+    assert controller.state.effective_level == control.LEVEL_MEDIUM
+
+    expired_controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    past = datetime.now(UTC) - timedelta(minutes=1)
+    asyncio.run(expired_controller.async_restore(None, past, control.LEVEL_HIGH))
+    assert expired_controller.state.boost_until is None
+    assert expired_controller.state.boost_level is None
+    assert expired_controller.state.effective_level == control.LEVEL_LOW

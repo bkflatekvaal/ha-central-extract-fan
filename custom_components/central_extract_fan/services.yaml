@@ -1,0 +1,36 @@
+start_boost:
+  name: Start boost
+  description: Start or restart a temporary fan-level override.
+  target:
+    entity:
+      integration: central_extract_fan
+      domain: fan
+  fields:
+    level:
+      name: Level
+      description: Optional override level. Defaults to High when omitted.
+      example: high
+      selector:
+        select:
+          options:
+            - low
+            - medium
+            - high
+    duration:
+      name: Duration
+      description: Optional duration in minutes. Uses the configured boost duration when omitted.
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 240
+          step: 1
+          unit_of_measurement: min
+          mode: box
+cancel_boost:
+  name: Cancel boost
+  description: Cancel the active boost and immediately resume the underlying manual or automatic level.
+  target:
+    entity:
+      integration: central_extract_fan
+      domain: fan

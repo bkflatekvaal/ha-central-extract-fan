@@ -38,11 +38,26 @@ The highest valid humidity reading controls the fan. If none is valid, the fault
 
 The fan presets are **Auto**, **Low**, **Medium**, and **High** by default. Enable **Show and allow Off in fan controls** to expose and permit the Off preset. When disabled, Off is omitted from the preset list and zero-percent or turn-off commands resolve safely to Low. Some Home Assistant dashboards may still render the fan domain's standard power button, but it cannot stop this fan while Off is disabled. Selecting a speed creates a persistent manual override; select Auto (or turn on Automatic control) to resume regulation. Normal automatic humidity control never requests Off.
 
-Precedence is: **Boost → Manual override → Automatic humidity control**. Silent hours cap automatic control only; they never cap Boost or a manual level. Boost preserves the selected manual/automatic mode. When boost expires or is cancelled, the controller recalculates from current humidity and schedule state instead of restoring a stale speed.
+Precedence is: **Boost → Manual override → Automatic humidity control**. Silent hours cap automatic control only; they never cap Boost or a manual level. Boost is a time-limited High override—not another manual mode. It preserves the selected manual/automatic mode and keeps automatic humidity regulation running underneath. When boost expires or is cancelled, the controller recalculates from current humidity and schedule state instead of restoring a stale speed. The action may explicitly request Low or Medium as a generic timed override.
 
 Silent hours are disabled unless a schedule entity is selected. Its automatic maximum may be Off, Low, or Medium; choosing Off is sufficient and requires no additional permission checkbox. A diagnostic timestamp shows the schedule's next change when Home Assistant provides it. The configured humidity thresholds and hysteresis are also exposed as diagnostic sensors.
 
-Use the generated **Start boost** and **Cancel boost** button entities. Boost status is exposed through an active binary sensor, remaining-seconds sensor, and a restart-safe **Boost ends at** timestamp sensor. Example automation action (select your generated entity because its ID may differ):
+Use **Start boost**, **Cancel boost**, or **Toggle boost**. Start boost and an inactive toggle always start a High boost for the configured duration. Starting boost again restarts that duration. Boost status is exposed through an active binary sensor, remaining-seconds sensor, and restart-safe **Boost ends at** timestamp.
+
+The integration also provides `central_extract_fan.start_boost` and `central_extract_fan.cancel_boost` actions. Level and duration are optional; an omitted level always means High, and an omitted duration uses the configured duration. For example, a 30-minute Medium timed override:
+
+```yaml
+action: central_extract_fan.start_boost
+target:
+  entity_id: fan.central_extract_fan
+data:
+  level: medium
+  duration: 30
+```
+
+External button automations can start different levels without changing manual mode—for example, map a single press to `level: high` and a double press to `level: medium`. The integration remains independent of the button or relay hardware.
+
+The original Start boost button remains available for simple automations (select your generated entity because its ID may differ):
 
 ```yaml
 action: button.press

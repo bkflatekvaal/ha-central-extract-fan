@@ -15,7 +15,8 @@ class CentralExtractFan(FanEntity, RestoreEntity):
         if self._off_enabled: self._attr_supported_features |= FanEntityFeature.TURN_OFF
     async def async_added_to_hass(self):
         await super().async_added_to_hass(); self.async_on_remove(self.controller.add_update_listener(self.async_write_ha_state))
-        previous = await self.async_get_last_state(); manual = boost = None
+        self.controller.fan_entity_id = self.entity_id
+        previous = await self.async_get_last_state(); manual = boost = boost_level = None
         if previous:
             preset = previous.attributes.get("preset_mode")
             if preset in LEVEL_NAMES: manual = LEVEL_NAMES.index(preset)
@@ -23,7 +24,8 @@ class CentralExtractFan(FanEntity, RestoreEntity):
             if raw := previous.attributes.get("boost_until"):
                 try: boost = dt_util.parse_datetime(raw)
                 except (TypeError, ValueError): pass
-        await self.controller.async_restore(manual, boost)
+            boost_level = previous.attributes.get("boost_level")
+        await self.controller.async_restore(manual, boost, boost_level)
     @property
     def is_on(self): return self.controller.state.effective_level > 0
     @property
@@ -31,7 +33,7 @@ class CentralExtractFan(FanEntity, RestoreEntity):
     @property
     def preset_mode(self): return "auto" if self.controller.state.manual_level is None else LEVEL_NAMES[self.controller.state.manual_level]
     @property
-    def extra_state_attributes(self): return {"boost_until": self.controller.state.boost_until.isoformat() if self.controller.state.boost_until else None}
+    def extra_state_attributes(self): return {"boost_until": self.controller.state.boost_until.isoformat() if self.controller.state.boost_until else None, "boost_level": self.controller.state.boost_level}
     async def async_set_preset_mode(self, preset_mode):
         if preset_mode == "off" and not self._off_enabled: return
         await self.controller.async_set_manual_level(None if preset_mode == "auto" else LEVEL_NAMES.index(preset_mode))

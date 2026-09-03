@@ -9,7 +9,7 @@ from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
 
-ROOT = Path(__file__).parents[1] / "custom_components/villavent_extract_fan"
+ROOT = Path(__file__).parents[1] / "custom_components/central_extract_fan"
 
 
 def _install_home_assistant_stubs() -> None:
@@ -66,12 +66,12 @@ def _load_module(name: str, filename: str):
 
 
 _install_home_assistant_stubs()
-package = ModuleType("villavent_test")
+package = ModuleType("central_extract_fan_test")
 package.__path__ = [str(ROOT)]
-sys.modules["villavent_test"] = package
-control = _load_module("villavent_test.control", "control.py")
-const = _load_module("villavent_test.const", "const.py")
-coordinator = _load_module("villavent_test.coordinator", "coordinator.py")
+sys.modules["central_extract_fan_test"] = package
+control = _load_module("central_extract_fan_test.control", "control.py")
+const = _load_module("central_extract_fan_test.const", "const.py")
+coordinator = _load_module("central_extract_fan_test.coordinator", "coordinator.py")
 
 
 class States:
@@ -114,7 +114,7 @@ def make_controller(values, **options):
     }
     entry = SimpleNamespace(data=data, options=options, entry_id="test", title="Test fan")
     hass = Hass(values)
-    return coordinator.VillaventController(hass, entry), hass
+    return coordinator.CentralExtractFanController(hass, entry), hass
 
 
 def test_medium_to_low_hardware_order_is_break_before_make():

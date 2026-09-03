@@ -13,7 +13,7 @@ from .const import (
     DOMAIN,
     LEVEL_NAMES,
 )
-from .entity import VillaventEntity
+from .entity import CentralExtractFanEntity
 
 DESCRIPTIONS = (
  SensorEntityDescription(key="control_humidity", translation_key="control_humidity", native_unit_of_measurement=PERCENTAGE, device_class=SensorDeviceClass.HUMIDITY, state_class=SensorStateClass.MEASUREMENT),
@@ -29,8 +29,8 @@ DESCRIPTIONS = (
  SensorEntityDescription(key="hysteresis", translation_key="hysteresis", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
  SensorEntityDescription(key="next_silent_change", translation_key="next_silent_change", device_class=SensorDeviceClass.TIMESTAMP, entity_category=EntityCategory.DIAGNOSTIC),
 )
-async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([VillaventSensor(hass.data[DOMAIN][entry.entry_id], entry, d) for d in DESCRIPTIONS])
-class VillaventSensor(VillaventEntity, SensorEntity):
+async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([CentralExtractFanSensor(hass.data[DOMAIN][entry.entry_id], entry, d) for d in DESCRIPTIONS])
+class CentralExtractFanSensor(CentralExtractFanEntity, SensorEntity):
     def __init__(self, controller, entry, description): super().__init__(controller, entry, description.key); self.entity_description = description
     @property
     def native_value(self):

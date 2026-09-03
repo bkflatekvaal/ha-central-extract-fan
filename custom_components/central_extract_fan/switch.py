@@ -2,9 +2,9 @@
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import EntityCategory
 from .const import DOMAIN
-from .entity import VillaventEntity
+from .entity import CentralExtractFanEntity
 async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([AutomaticSwitch(hass.data[DOMAIN][entry.entry_id], entry)])
-class AutomaticSwitch(VillaventEntity, SwitchEntity):
+class AutomaticSwitch(CentralExtractFanEntity, SwitchEntity):
     _attr_translation_key = "automatic_control"; _attr_entity_category = EntityCategory.CONFIG
     def __init__(self, controller, entry): super().__init__(controller, entry, "automatic_control")
     @property

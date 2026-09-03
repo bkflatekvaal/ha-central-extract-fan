@@ -1,16 +1,16 @@
-# Villavent Extract Fan
+# Central Extract Fan
 
-Home Assistant custom integration for a three-speed central extract fan controlled by two switch entities. It provides humidity regulation, manual presets, timed boost, optional silent hours, RPM diagnostics, and indicator outputs.
+Home Assistant custom integration for a three-speed central extract fan, including relay-controlled systems commonly found in Villavent and Flexit installations. It provides humidity regulation, manual presets, timed boost, optional silent hours, RPM diagnostics, and indicator outputs.
 
 ## Install with HACS as a custom repository
 
 1. In HACS, open **Custom repositories**.
-2. Add `https://github.com/bkflatekvaal/ha-villavent-extract-fan` and choose category **Integration**.
-3. Find **Villavent Extract Fan** in HACS and select **Download**.
+2. Add `https://github.com/bkflatekvaal/ha-central-extract-fan` and choose category **Integration**.
+3. Find **Central Extract Fan** in HACS and select **Download**.
 4. Restart Home Assistant.
-5. Go to **Settings → Devices & services → Add integration → Villavent Extract Fan**.
+5. Go to **Settings → Devices & services → Add integration → Central Extract Fan**.
 
-The GitHub repository must be public. Manual installation is also possible by copying `custom_components/villavent_extract_fan` to Home Assistant's `custom_components` directory.
+The GitHub repository must be public. Manual installation is also possible by copying `custom_components/central_extract_fan` to Home Assistant's `custom_components` directory.
 
 ## Hardware mapping
 
@@ -47,7 +47,7 @@ Use the generated **Start boost** and **Cancel boost** button entities. Example 
 ```yaml
 action: button.press
 target:
-  entity_id: button.villavent_extract_fan_start_boost
+  entity_id: button.central_extract_fan_start_boost
 ```
 
 ## RPM diagnostics and indicators

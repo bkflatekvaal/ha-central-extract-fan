@@ -24,7 +24,7 @@ class ControllerState:
     expected_rpm: float | None = None
     rpm_deviation: float | None = None
 
-class VillaventController:
+class CentralExtractFanController:
     def __init__(self, hass, entry):
         self.hass, self.entry, self.state = hass, entry, ControllerState()
         self._unsubs, self._callbacks = [], set()
@@ -33,7 +33,7 @@ class VillaventController:
     @property
     def cfg(self): return {**self.entry.data, **self.entry.options}
     @property
-    def device_info(self): return {"identifiers": {(DOMAIN, self.entry.entry_id)}, "name": self.entry.title, "manufacturer": "Villavent", "model": "Three-speed extract fan controller"}
+    def device_info(self): return {"identifiers": {(DOMAIN, self.entry.entry_id)}, "name": self.entry.title, "manufacturer": "Villavent / Flexit / Generic", "model": "Three-speed extract fan controller"}
     def add_update_listener(self, cb):
         self._callbacks.add(cb); return lambda: self._callbacks.discard(cb)
     @callback

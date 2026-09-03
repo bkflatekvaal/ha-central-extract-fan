@@ -11,7 +11,7 @@ from .const import (
     LEGACY_CONF_SWITCH_DELAY,
     PLATFORMS,
 )
-from .coordinator import VillaventController
+from .coordinator import CentralExtractFanController
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -31,7 +31,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    controller = VillaventController(hass, entry)
+    controller = CentralExtractFanController(hass, entry)
     await controller.async_initialize()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = controller

@@ -1,0 +1,12 @@
+{
+  "codeowners": ["@bkflatekvaal"],
+  "config_flow": true,
+  "documentation": "https://github.com/bkflatekvaal/ha-central-extract-fan",
+  "domain": "central_extract_fan",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/bkflatekvaal/ha-central-extract-fan/issues",
+  "name": "Central Extract Fan",
+  "requirements": [],
+  "version": "0.3.0"
+}

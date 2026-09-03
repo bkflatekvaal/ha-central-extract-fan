@@ -4,8 +4,8 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import dt as dt_util
 from .const import CONF_SHOW_OFF_PRESET, DOMAIN, LEVEL_NAMES
 
-async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([VillaventFan(hass.data[DOMAIN][entry.entry_id], entry)])
-class VillaventFan(FanEntity, RestoreEntity):
+async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([CentralExtractFan(hass.data[DOMAIN][entry.entry_id], entry)])
+class CentralExtractFan(FanEntity, RestoreEntity):
     _attr_has_entity_name = True; _attr_name = None; _attr_speed_count = 3
     def __init__(self, controller, entry): self.controller = controller; self._attr_unique_id = f"{entry.entry_id}_fan"; self._attr_device_info = controller.device_info
     async def async_added_to_hass(self):

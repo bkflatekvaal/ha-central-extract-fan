@@ -18,7 +18,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input:
             if user_input[CONF_CH1] == user_input[CONF_CH2]: return self.async_show_form(step_id="user", data_schema=self._schema(user_input), errors={"base": "channels_must_differ"})
             await self.async_set_unique_id(f"{user_input[CONF_CH1]}_{user_input[CONF_CH2]}"); self._abort_if_unique_id_configured()
-            return self.async_create_entry(title="Villavent Extract Fan", data=user_input)
+            return self.async_create_entry(title="Central Extract Fan", data=user_input)
         return self.async_show_form(step_id="user", data_schema=self._schema({}))
     def _schema(self, c):
         return vol.Schema({vol.Required(CONF_CH1): SWITCH, vol.Required(CONF_CH2): SWITCH, vol.Required(CONF_HUMIDITY_SENSORS): HUMIDITY})

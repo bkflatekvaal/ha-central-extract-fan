@@ -2,7 +2,7 @@
 import importlib.util
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location("control", Path(__file__).parents[1] / "custom_components/villavent_extract_fan/control.py")
+spec = importlib.util.spec_from_file_location("control", Path(__file__).parents[1] / "custom_components/central_extract_fan/control.py")
 control = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(control)
 

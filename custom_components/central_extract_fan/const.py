@@ -1,8 +1,8 @@
-"""Constants for Villavent Extract Fan."""
+"""Constants for Central Extract Fan."""
 from homeassistant.const import Platform
 from .control import LEVEL_HIGH, LEVEL_LOW, LEVEL_MEDIUM, LEVEL_NAMES, LEVEL_OFF
 
-DOMAIN = "villavent_extract_fan"
+DOMAIN = "central_extract_fan"
 PLATFORMS = [Platform.FAN, Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SWITCH, Platform.BUTTON, Platform.NUMBER]
 CONF_CH1 = "channel_1"
 CONF_CH2 = "channel_2"

@@ -21,12 +21,12 @@ The GitHub repository must be public. Manual installation is also possible by co
 | Medium | Off | On |
 | High | On | On |
 
-Only changed relays are actuated. Low/Medium swaps use break-before-make switching with the configured delay:
+Only changed relays are actuated. Low/Medium swaps use break-before-make switching with the configured millisecond delay (default 500 ms):
 
 - Low → Off → Medium
 - Medium → Off → Low
 
-This deliberately avoids a temporary High state and its noticeable burst of fan noise. Transitions to or from High change only the one relay that differs and do not pass through Off.
+This deliberately avoids a temporary High state and its noticeable burst of fan noise. Transitions to or from High change only the one relay that differs, do not pass through Off, and incur no switching delay. Existing entries using the old seconds-based setting are converted to milliseconds automatically.
 
 ## Configuration and humidity control
 

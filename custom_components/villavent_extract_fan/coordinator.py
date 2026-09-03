@@ -105,7 +105,10 @@ class VillaventController:
             changes = relay_transition(current, target)
             for pos, (i, turn_on) in enumerate(changes):
                 await self._set_switch(self.cfg[(CONF_CH1, CONF_CH2)[i]], turn_on)
-                if pos < len(changes) - 1: await asyncio.sleep(float(self.cfg.get(CONF_SWITCH_DELAY, DEFAULT_SWITCH_DELAY)))
+                break_before_make = len(changes) == 2 and changes[0][1] is False and changes[1][1] is True
+                if pos == 0 and break_before_make:
+                    delay_ms = int(self.cfg.get(CONF_RELAY_SWITCH_DELAY_MS, DEFAULT_RELAY_SWITCH_DELAY_MS))
+                    if delay_ms: await asyncio.sleep(delay_ms / 1000)
             if changes: self._last_output_change = dt_util.utcnow(); self._schedule_settle()
             await self._sync_indicators(*target)
     async def _sync_indicators(self, ch1, ch2):
@@ -135,13 +138,13 @@ class VillaventController:
         if not rpm_entity: self.state.fan_fault = False; return
         expected = {LEVEL_OFF: 0, LEVEL_LOW: self.cfg.get(CONF_RPM_LOW), LEVEL_MEDIUM: self.cfg.get(CONF_RPM_MEDIUM), LEVEL_HIGH: self.cfg.get(CONF_RPM_HIGH)}[self.state.effective_level]
         self.state.expected_rpm = float(expected) if expected not in (None, "") else None
-        if (dt_util.utcnow() - self._last_output_change).total_seconds() < int(self.cfg.get(CONF_RPM_SETTLE_TIME, DEFAULT_RPM_SETTLE_TIME)): self.state.fan_fault = False; return
         state = self.hass.states.get(rpm_entity)
         try: rpm = float(state.state) if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN) else None
         except (TypeError, ValueError): rpm = None
+        if rpm is not None and self.state.expected_rpm is not None: self.state.rpm_deviation = rpm - self.state.expected_rpm
+        if (dt_util.utcnow() - self._last_output_change).total_seconds() < int(self.cfg.get(CONF_RPM_SETTLE_TIME, DEFAULT_RPM_SETTLE_TIME)): self.state.fan_fault = False; return
         if rpm is None: self.state.fan_fault = True; return
         if self.state.expected_rpm is None: self.state.fan_fault = False; return
-        self.state.rpm_deviation = rpm - self.state.expected_rpm
         self.state.fan_fault = abs(self.state.rpm_deviation) > max(self.state.expected_rpm * float(self.cfg.get(CONF_RPM_TOLERANCE, DEFAULT_RPM_TOLERANCE)) / 100, 1)
     @property
     def boost_remaining_seconds(self): return max(0, int((self.state.boost_until - dt_util.utcnow()).total_seconds())) if self._boost_active() else 0

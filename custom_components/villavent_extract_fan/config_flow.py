@@ -12,7 +12,7 @@ SCHEDULE = selector.EntitySelector(selector.EntitySelectorConfig(domain="schedul
 SENSOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 1
+    VERSION = 2
     async def async_step_user(self, user_input=None):
         if user_input:
             if user_input[CONF_CH1] == user_input[CONF_CH2]: return self.async_show_form(step_id="user", data_schema=self._schema(user_input), errors={"base": "channels_must_differ"})
@@ -43,7 +43,7 @@ class OptionsFlow(config_entries.OptionsFlow):
             vol.Required(CONF_HIGH_THRESHOLD, default=c.get(CONF_HIGH_THRESHOLD, DEFAULT_HIGH_THRESHOLD)): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
             vol.Required(CONF_HYSTERESIS, default=c.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)): vol.All(vol.Coerce(float), vol.Range(min=0, max=30)),
             vol.Required(CONF_BOOST_DURATION, default=c.get(CONF_BOOST_DURATION, DEFAULT_BOOST_DURATION)): vol.All(vol.Coerce(int), vol.Range(min=1, max=240)),
-            vol.Required(CONF_SWITCH_DELAY, default=c.get(CONF_SWITCH_DELAY, DEFAULT_SWITCH_DELAY)): vol.All(vol.Coerce(float), vol.Range(min=0, max=10)),
+            vol.Required(CONF_RELAY_SWITCH_DELAY_MS, default=c.get(CONF_RELAY_SWITCH_DELAY_MS, DEFAULT_RELAY_SWITCH_DELAY_MS)): selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=5000, step=1, mode=selector.NumberSelectorMode.BOX, unit_of_measurement="ms")),
             vol.Optional(CONF_SILENT_SCHEDULE, **optional(CONF_SILENT_SCHEDULE)): SCHEDULE,
             vol.Required(CONF_SILENT_MAX_LEVEL, default=str(c.get(CONF_SILENT_MAX_LEVEL, DEFAULT_SILENT_MAX_LEVEL))): selector.SelectSelector(selector.SelectSelectorConfig(options=[{"value": "0", "label": "Off (requires explicit permission below)"}, {"value": "1", "label": "Low"}, {"value": "2", "label": "Medium"}])),
             vol.Required(CONF_SILENT_ALLOW_OFF, default=c.get(CONF_SILENT_ALLOW_OFF, False)): bool,

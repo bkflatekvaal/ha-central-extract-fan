@@ -3,8 +3,20 @@ from __future__ import annotations
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN, PLATFORMS
+from .const import CONF_RELAY_SWITCH_DELAY_MS, DOMAIN, LEGACY_CONF_SWITCH_DELAY, PLATFORMS
 from .coordinator import VillaventController
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate the legacy seconds-based relay delay to milliseconds."""
+    if entry.version == 1:
+        data = dict(entry.data)
+        options = dict(entry.options)
+        legacy_delay = options.pop(LEGACY_CONF_SWITCH_DELAY, data.pop(LEGACY_CONF_SWITCH_DELAY, None))
+        if legacy_delay is not None and CONF_RELAY_SWITCH_DELAY_MS not in options:
+            options[CONF_RELAY_SWITCH_DELAY_MS] = min(5000, max(0, round(float(legacy_delay) * 1000)))
+        hass.config_entries.async_update_entry(entry, data=data, options=options, version=2)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -1,5 +1,13 @@
 # Central Extract Fan
 
+<p align="center">
+  <img src="assets/central-extract-fan-icon.png" alt="Central Extract Fan icon" width="160">
+</p>
+
+<p align="center">
+  <img src="assets/central-extract-fan-hero.png" alt="A central extract fan drawing air from rooms in a Nordic home" width="100%">
+</p>
+
 Home Assistant custom integration for a three-speed central extract fan, including relay-controlled systems commonly found in Villavent and Flexit installations. It provides humidity regulation, manual presets, timed boost, optional silent hours, RPM diagnostics, and indicator outputs.
 
 ## Install with HACS as a custom repository

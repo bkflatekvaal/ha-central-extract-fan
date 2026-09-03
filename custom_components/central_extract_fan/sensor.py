@@ -17,17 +17,18 @@ from .entity import CentralExtractFanEntity
 
 DESCRIPTIONS = (
  SensorEntityDescription(key="control_humidity", translation_key="control_humidity", native_unit_of_measurement=PERCENTAGE, device_class=SensorDeviceClass.HUMIDITY, state_class=SensorStateClass.MEASUREMENT),
- SensorEntityDescription(key="humidity_source", translation_key="humidity_source", entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="requested_level", translation_key="requested_level", entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="effective_level", translation_key="effective_level", entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="control_source", translation_key="control_source", entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="boost_remaining", translation_key="boost_remaining", native_unit_of_measurement=UnitOfTime.SECONDS, entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="expected_rpm", translation_key="expected_rpm", native_unit_of_measurement="rpm", entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="rpm_deviation", translation_key="rpm_deviation", native_unit_of_measurement="rpm", suggested_display_precision=0, entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="medium_threshold", translation_key="medium_threshold", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="high_threshold", translation_key="high_threshold", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="hysteresis", translation_key="hysteresis", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
- SensorEntityDescription(key="next_silent_change", translation_key="next_silent_change", device_class=SensorDeviceClass.TIMESTAMP, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="humidity_source", translation_key="humidity_source", icon="mdi:water-percent", entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="requested_level", translation_key="requested_level", icon="mdi:fan-chevron-up", entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="effective_level", translation_key="effective_level", icon="mdi:fan", entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="control_source", translation_key="control_source", icon="mdi:tune-variant", entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="boost_remaining", translation_key="boost_remaining", icon="mdi:timer-sand", native_unit_of_measurement=UnitOfTime.SECONDS, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="boost_ends_at", translation_key="boost_ends_at", icon="mdi:fan-clock", device_class=SensorDeviceClass.TIMESTAMP, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="expected_rpm", translation_key="expected_rpm", icon="mdi:speedometer", native_unit_of_measurement="rpm", entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="rpm_deviation", translation_key="rpm_deviation", icon="mdi:delta", native_unit_of_measurement="rpm", suggested_display_precision=0, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="medium_threshold", translation_key="medium_threshold", icon="mdi:water-percent", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="high_threshold", translation_key="high_threshold", icon="mdi:water-percent", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="hysteresis", translation_key="hysteresis", icon="mdi:water-sync", native_unit_of_measurement=PERCENTAGE, entity_category=EntityCategory.DIAGNOSTIC),
+ SensorEntityDescription(key="next_silent_change", translation_key="next_silent_change", icon="mdi:fan-clock", device_class=SensorDeviceClass.TIMESTAMP, entity_category=EntityCategory.DIAGNOSTIC),
 )
 async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([CentralExtractFanSensor(hass.data[DOMAIN][entry.entry_id], entry, d) for d in DESCRIPTIONS])
 class CentralExtractFanSensor(CentralExtractFanEntity, SensorEntity):
@@ -36,6 +37,7 @@ class CentralExtractFanSensor(CentralExtractFanEntity, SensorEntity):
     def native_value(self):
         key = self.entity_description.key
         if key == "boost_remaining": return self.controller.boost_remaining_seconds
+        if key == "boost_ends_at": return self.controller.state.boost_until
         if key == "rpm_deviation":
             value = self.controller.state.rpm_deviation
             return round(value) if value is not None else None

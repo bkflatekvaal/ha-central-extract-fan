@@ -36,13 +36,13 @@ The highest valid humidity reading controls the fan. If none is valid, the fault
 
 ## Modes, boost, and silent hours
 
-The fan presets are **Auto**, **Low**, **Medium**, and **High** by default. Enable **Show and allow Off in fan controls** to expose and permit the Off preset and turn-off control. When disabled, zero-percent and turn-off commands resolve safely to Low. Selecting a speed creates a persistent manual override; select Auto (or turn on Automatic control) to resume regulation. Normal automatic humidity control never requests Off.
+The fan presets are **Auto**, **Low**, **Medium**, and **High** by default. Enable **Show and allow Off in fan controls** to expose and permit the Off preset. When disabled, Off is omitted from the preset list and zero-percent or turn-off commands resolve safely to Low. Some Home Assistant dashboards may still render the fan domain's standard power button, but it cannot stop this fan while Off is disabled. Selecting a speed creates a persistent manual override; select Auto (or turn on Automatic control) to resume regulation. Normal automatic humidity control never requests Off.
 
 Precedence is: **Boost → Manual override → Automatic humidity control**. Silent hours cap automatic control only; they never cap Boost or a manual level. Boost preserves the selected manual/automatic mode. When boost expires or is cancelled, the controller recalculates from current humidity and schedule state instead of restoring a stale speed.
 
 Silent hours are disabled unless a schedule entity is selected. Its automatic maximum may be Off, Low, or Medium; choosing Off is sufficient and requires no additional permission checkbox. A diagnostic timestamp shows the schedule's next change when Home Assistant provides it. The configured humidity thresholds and hysteresis are also exposed as diagnostic sensors.
 
-Use the generated **Start boost** and **Cancel boost** button entities. Example automation action (select your generated entity because its ID may differ):
+Use the generated **Start boost** and **Cancel boost** button entities. Boost status is exposed through an active binary sensor, remaining-seconds sensor, and a restart-safe **Boost ends at** timestamp sensor. Example automation action (select your generated entity because its ID may differ):
 
 ```yaml
 action: button.press

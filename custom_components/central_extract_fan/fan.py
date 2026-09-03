@@ -9,7 +9,7 @@ class CentralExtractFan(FanEntity, RestoreEntity):
     _attr_has_entity_name = True; _attr_name = None; _attr_speed_count = 3
     def __init__(self, controller, entry):
         self.controller = controller; self._attr_unique_id = f"{entry.entry_id}_fan"; self._attr_device_info = controller.device_info
-        self._off_enabled = bool(controller.cfg.get(CONF_SHOW_OFF_PRESET, False))
+        self._off_enabled = controller.cfg.get(CONF_SHOW_OFF_PRESET, False) is True
         self._attr_preset_modes = ["auto", *(LEVEL_NAMES if self._off_enabled else LEVEL_NAMES[1:])]
         self._attr_supported_features = FanEntityFeature.PRESET_MODE | FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_ON
         if self._off_enabled: self._attr_supported_features |= FanEntityFeature.TURN_OFF

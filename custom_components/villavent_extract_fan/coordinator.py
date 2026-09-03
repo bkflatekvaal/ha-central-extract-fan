@@ -89,7 +89,6 @@ class VillaventController:
         self.state.control_humidity, self.state.humidity_source, self.state.humidity_fault = humidity, source, humidity is None
         self.state.requested_level = hysteresis_level(humidity, self.state.requested_level, float(self.cfg.get(CONF_MEDIUM_THRESHOLD, DEFAULT_MEDIUM_THRESHOLD)), float(self.cfg.get(CONF_HIGH_THRESHOLD, DEFAULT_HIGH_THRESHOLD)), float(self.cfg.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)))
         silent_max = int(self.cfg.get(CONF_SILENT_MAX_LEVEL, DEFAULT_SILENT_MAX_LEVEL))
-        if silent_max == LEVEL_OFF and not self.cfg.get(CONF_SILENT_ALLOW_OFF, False): silent_max = LEVEL_LOW
         level, source_name = effective_level(self.state.requested_level, self.state.manual_level, self._boost_active(), self._silent_active(), silent_max)
         self.state.effective_level = level
         self.state.control_source = "fallback" if self.state.humidity_fault and source_name == "humidity" else source_name

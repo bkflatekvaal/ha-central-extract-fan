@@ -1,11 +1,12 @@
 {
-  "domain": "villavent_extract_fan",
-  "name": "Villavent Extract Fan",
-  "version": "0.1.0",
-  "documentation": "https://github.com/bkflatekvaal/ha-villavent-extract-fan",
-  "issue_tracker": "https://github.com/bkflatekvaal/ha-villavent-extract-fan/issues",
+  "codeowners": ["@bkflatekvaal"],
   "config_flow": true,
+  "documentation": "https://github.com/bkflatekvaal/ha-villavent-extract-fan",
+  "domain": "villavent_extract_fan",
+  "integration_type": "device",
   "iot_class": "local_push",
+  "issue_tracker": "https://github.com/bkflatekvaal/ha-villavent-extract-fan/issues",
+  "name": "Villavent Extract Fan",
   "requirements": [],
-  "codeowners": []
+  "version": "0.2.0"
 }

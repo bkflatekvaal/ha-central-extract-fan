@@ -1,38 +1,17 @@
-from __future__ import annotations
-from homeassistant.components.binary_sensor import BinarySensorEntity, BinarySensorDeviceClass
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+"""Status and fault sensors."""
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity, BinarySensorEntityDescription
+from homeassistant.const import EntityCategory
 from .const import DOMAIN
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    c = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([HumidityFault(c, entry), FanFault(c, entry), BoostActive(c, entry), SilentHoursActive(c, entry)])
-
-class Base(BinarySensorEntity):
-    def __init__(self,c,e,key,name): self.controller=c; self._attr_unique_id=f"{e.entry_id}_{key}"; self._attr_name=name
-    async def async_added_to_hass(self): self.async_on_remove(self.controller.add_update_listener(self._u))
-    @callback
-    def _u(self): self.async_write_ha_state()
-
-class HumidityFault(Base):
-    _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    def __init__(self,c,e): super().__init__(c,e,"humidity_fault","Humidity sensor fault")
+from .entity import VillaventEntity
+DESCRIPTIONS = (
+ BinarySensorEntityDescription(key="humidity_fault", translation_key="humidity_fault", device_class=BinarySensorDeviceClass.PROBLEM, entity_category=EntityCategory.DIAGNOSTIC),
+ BinarySensorEntityDescription(key="fan_fault", translation_key="fan_fault", device_class=BinarySensorDeviceClass.PROBLEM, entity_category=EntityCategory.DIAGNOSTIC),
+ BinarySensorEntityDescription(key="boost_active", translation_key="boost_active"),
+ BinarySensorEntityDescription(key="silent_active", translation_key="silent_active"),
+)
+async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([StatusSensor(hass.data[DOMAIN][entry.entry_id], entry, d) for d in DESCRIPTIONS])
+class StatusSensor(VillaventEntity, BinarySensorEntity):
+    def __init__(self, controller, entry, description): super().__init__(controller, entry, description.key); self.entity_description = description
     @property
-    def is_on(self): return self.controller.state.humidity_fault
-
-class FanFault(Base):
-    _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    def __init__(self,c,e): super().__init__(c,e,"fan_fault","Fan fault")
-    @property
-    def is_on(self): return self.controller.state.fan_fault
-
-class BoostActive(Base):
-    def __init__(self,c,e): super().__init__(c,e,"boost_active","Boost active")
-    @property
-    def is_on(self): return self.controller.boost_remaining_seconds > 0
-
-class SilentHoursActive(Base):
-    def __init__(self,c,e): super().__init__(c,e,"silent_hours_active","Silent hours active")
-    @property
-    def is_on(self): return self.controller._silent_active()
+    def is_on(self):
+        return {"humidity_fault": self.controller.state.humidity_fault, "fan_fault": self.controller.state.fan_fault, "boost_active": self.controller.boost_remaining_seconds > 0, "silent_active": self.controller._silent_active()}[self.entity_description.key]

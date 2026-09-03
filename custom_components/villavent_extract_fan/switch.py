@@ -1,18 +1,12 @@
-from __future__ import annotations
+"""Automatic control switch."""
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.const import EntityCategory
 from .const import DOMAIN
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    async_add_entities([AutomaticControlSwitch(hass.data[DOMAIN][entry.entry_id], entry)])
-
-class AutomaticControlSwitch(SwitchEntity):
-    def __init__(self,c,e): self.controller=c; self._attr_unique_id=f"{e.entry_id}_automatic_control"; self._attr_name="Automatic control"
-    async def async_added_to_hass(self): self.async_on_remove(self.controller.add_update_listener(self._u))
-    @callback
-    def _u(self): self.async_write_ha_state()
+from .entity import VillaventEntity
+async def async_setup_entry(hass, entry, async_add_entities): async_add_entities([AutomaticSwitch(hass.data[DOMAIN][entry.entry_id], entry)])
+class AutomaticSwitch(VillaventEntity, SwitchEntity):
+    _attr_translation_key = "automatic_control"; _attr_entity_category = EntityCategory.CONFIG
+    def __init__(self, controller, entry): super().__init__(controller, entry, "automatic_control")
     @property
     def is_on(self): return self.controller.state.manual_level is None
     async def async_turn_on(self, **kwargs): await self.controller.async_set_manual_level(None)

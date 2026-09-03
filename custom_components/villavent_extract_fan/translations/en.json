@@ -1,49 +1,6 @@
 {
-  "title": "Villavent Extract Fan",
-  "config": {
-    "step": {
-      "user": {
-        "title": "Set up Villavent Extract Fan",
-        "description": "Configure fan outputs and humidity control.",
-        "data": {
-          "name": "Name",
-          "channel_1": "Channel 1 switch",
-          "channel_2": "Channel 2 switch",
-          "humidity_sensors": "Humidity sensors",
-          "medium_threshold": "Medium threshold (%)",
-          "high_threshold": "High threshold (%)",
-          "hysteresis": "Hysteresis (%)",
-          "switch_delay": "Delay between channel switching (s)"
-        }
-      }
-    },
-    "error": {
-      "high_must_exceed_medium": "High threshold must be higher than medium threshold."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Villavent Extract Fan options",
-        "data": {
-          "humidity_sensors": "Humidity sensors",
-          "medium_threshold": "Medium threshold (%)",
-          "high_threshold": "High threshold (%)",
-          "hysteresis": "Hysteresis (%)",
-          "boost_duration": "Boost duration (minutes)",
-          "silent_schedule": "Silent hours schedule (optional)",
-          "silent_max_level": "Maximum level during silent hours",
-          "silent_allow_off": "Allow off during silent hours",
-          "rpm_sensor": "RPM sensor (optional)",
-          "rpm_low": "Expected RPM - low",
-          "rpm_medium": "Expected RPM - medium",
-          "rpm_high": "Expected RPM - high",
-          "rpm_tolerance": "RPM tolerance (%)",
-          "rpm_settle_time": "RPM settling time (seconds)",
-          "indicators_ch1": "Channel 1 indicator switches",
-          "indicators_ch2": "Channel 2 indicator switches"
-        }
-      }
-    }
-  }
+ "title":"Villavent Extract Fan",
+ "config":{"step":{"user":{"title":"Set up Villavent Extract Fan","description":"Select the two relay outputs and at least one humidity sensor.","data":{"channel_1":"Channel 1 switch","channel_2":"Channel 2 switch","humidity_sensors":"Humidity sensors"}}},"error":{"channels_must_differ":"Channel 1 and Channel 2 must be different switches."},"abort":{"already_configured":"These relay outputs are already configured."}},
+ "options":{"step":{"init":{"title":"Villavent Extract Fan options","data":{"humidity_sensors":"Humidity sensors","medium_threshold":"Medium threshold (%)","high_threshold":"High threshold (%)","hysteresis":"Hysteresis (percentage points)","boost_duration":"Boost duration (minutes)","switch_delay":"Delay between relay changes (seconds)","silent_schedule":"Silent-hours schedule","silent_max_level":"Maximum automatic level during silent hours","rpm_sensor":"RPM sensor","rpm_low":"Expected RPM at Low","rpm_medium":"Expected RPM at Medium","rpm_high":"Expected RPM at High","rpm_tolerance":"RPM tolerance (%)","rpm_settle_time":"RPM settling time (seconds)","indicators_ch1":"Channel 1 indicator switches","indicators_ch2":"Channel 2 indicator switches"}}},"error":{"high_must_exceed_medium":"High threshold must be higher than medium threshold.","humidity_required":"Select at least one humidity sensor."}},
+ "entity":{"switch":{"automatic_control":{"name":"Automatic control"}},"button":{"start_boost":{"name":"Start boost"},"cancel_boost":{"name":"Cancel boost"}},"number":{"boost_duration":{"name":"Boost duration"}},"sensor":{"control_humidity":{"name":"Control humidity"},"humidity_source":{"name":"Control humidity source"},"requested_level":{"name":"Requested level"},"effective_level":{"name":"Effective level"},"control_source":{"name":"Control source"},"boost_remaining":{"name":"Boost remaining"},"expected_rpm":{"name":"Expected RPM"},"rpm_deviation":{"name":"RPM deviation"}},"binary_sensor":{"humidity_fault":{"name":"Humidity sensor fault"},"fan_fault":{"name":"Fan fault"},"boost_active":{"name":"Boost active"},"silent_active":{"name":"Silent hours active"}}}
 }

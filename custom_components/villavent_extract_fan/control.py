@@ -24,8 +24,32 @@ def hysteresis_level(humidity: float | None, previous: int, medium: float, high:
     return LEVEL_MEDIUM if humidity <= high - hysteresis else LEVEL_HIGH
 
 def effective_level(requested: int, manual: int | None, boost: bool, silent: bool, silent_max: int) -> tuple[int, str]:
-    """Apply precedence: manual, boost, then silent-capped automatic."""
-    if manual is not None: return manual, "manual"
+    """Apply precedence: boost, manual, then silent-capped automatic."""
     if boost: return LEVEL_HIGH, "boost"
+    if manual is not None: return manual, "manual"
     level = max(LEVEL_LOW, requested)
     return (silent_max, "humidity+silent") if silent and level > silent_max else (level, "humidity")
+
+def relay_transition(current: tuple[bool, bool], target: tuple[bool, bool]) -> list[tuple[int, bool]]:
+    """Return minimal relay changes, using break-before-make for a channel swap."""
+    changes = [index for index in (0, 1) if current[index] != target[index]]
+    if len(changes) == 2:
+        changes.sort(key=lambda index: target[index])
+    return [(index, target[index]) for index in changes]
+
+def highest_valid_humidity(values: dict[str, object]) -> tuple[float | None, str | None]:
+    """Return the highest numeric humidity and its entity ID."""
+    valid = []
+    for entity_id, raw_value in values.items():
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        valid.append((value, entity_id))
+    return max(valid, default=(None, None), key=lambda item: item[0])
+
+def indicator_needs_update(current: str | None, turn_on: bool) -> bool:
+    """Return whether an available indicator differs from the target state."""
+    if current in (None, "unknown", "unavailable"):
+        return False
+    return (current == "on") != turn_on

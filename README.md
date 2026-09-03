@@ -21,7 +21,12 @@ The GitHub repository must be public. Manual installation is also possible by co
 | Medium | Off | On |
 | High | On | On |
 
-Only changed relays are actuated. During a Low/Medium swap, the new channel is enabled first and the configured delay is observed before the old channel is disabled, preventing a brief stop. Verify that this overlap is safe for your hardware.
+Only changed relays are actuated. Low/Medium swaps use break-before-make switching with the configured delay:
+
+- Low → Off → Medium
+- Medium → Off → Low
+
+This deliberately avoids a temporary High state and its noticeable burst of fan noise. Transitions to or from High change only the one relay that differs and do not pass through Off.
 
 ## Configuration and humidity control
 
@@ -33,7 +38,9 @@ The highest valid humidity reading controls the fan. If none is valid, the fault
 
 The fan presets are **Auto**, **Off**, **Low**, **Medium**, and **High**. Selecting a speed creates a persistent manual override; select Auto (or turn on Automatic control) to resume regulation. Automatic mode never requests Off.
 
-Precedence is: manual override (including Off), boost, then automatic humidity control capped by an active silent-hours schedule. Thus silent hours do not cap manual control or boost. Boost does not disable Auto; when it ends, the controller recalculates the correct current level.
+Precedence is: **Boost → Manual override → Automatic humidity control**. Silent hours cap automatic control only; they never cap Boost or a manual level. Boost preserves the selected manual/automatic mode. When boost expires or is cancelled, the controller recalculates from current humidity and schedule state instead of restoring a stale speed.
+
+Silent hours are disabled unless a schedule entity is selected. The normal maximum is Low or Medium. Off can be selected only together with the clearly marked **Allow automatic Off during silent hours** option. Automatic control otherwise never turns the fan Off; Off requires an explicit manual choice or that explicit silent-hours permission.
 
 Use the generated **Start boost** and **Cancel boost** button entities. Example automation action (select your generated entity because its ID may differ):
 

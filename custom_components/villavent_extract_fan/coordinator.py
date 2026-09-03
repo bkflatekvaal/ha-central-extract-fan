@@ -8,7 +8,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
 from .const import *  # noqa: F403
-from .control import channels_for_level, effective_level, hysteresis_level, level_from_channels
+from .control import channels_for_level, effective_level, highest_valid_humidity, hysteresis_level, indicator_needs_update, level_from_channels, relay_transition
 
 @dataclass
 class ControllerState:
@@ -43,10 +43,12 @@ class VillaventController:
     async def async_initialize(self):
         physical = level_from_channels(self.hass.states.is_state(self.cfg[CONF_CH1], STATE_ON), self.hass.states.is_state(self.cfg[CONF_CH2], STATE_ON))
         self.state.effective_level, self.state.requested_level = physical, max(LEVEL_LOW, physical)
-        inputs = list(self.cfg.get(CONF_HUMIDITY_SENSORS, [])) + [self.cfg[k] for k in (CONF_SILENT_SCHEDULE, CONF_RPM_SENSOR) if self.cfg.get(k)]
+        indicators = self.cfg.get(CONF_INDICATORS_CH1, []) + self.cfg.get(CONF_INDICATORS_CH2, [])
+        inputs = list(self.cfg.get(CONF_HUMIDITY_SENSORS, [])) + [self.cfg[k] for k in (CONF_SILENT_SCHEDULE, CONF_RPM_SENSOR) if self.cfg.get(k)] + indicators
         if inputs: self._unsubs.append(async_track_state_change_event(self.hass, inputs, self._state_changed))
         self._unsubs.append(async_track_time_interval(self.hass, self._minute_tick, timedelta(minutes=1)))
         if self.cfg.get(CONF_RPM_SENSOR): self._schedule_settle()
+        await self._sync_indicators(*channels_for_level(physical))
         await self.async_recalculate(False)
     async def async_restore(self, manual, boost_until):
         self.state.manual_level = manual
@@ -57,18 +59,26 @@ class VillaventController:
         for cancel in (self._boost_cancel, self._settle_cancel):
             if cancel: cancel()
     @callback
-    def _state_changed(self, _event): self.hass.async_create_task(self.async_recalculate())
+    def _state_changed(self, event): self.hass.async_create_task(self._handle_state_change(event))
+    async def _handle_state_change(self, event):
+        entity_id = event.data["entity_id"]
+        if entity_id in self.cfg.get(CONF_INDICATORS_CH1, []):
+            await self._sync_indicator(entity_id, channels_for_level(self.state.effective_level)[0])
+            return
+        if entity_id in self.cfg.get(CONF_INDICATORS_CH2, []):
+            await self._sync_indicator(entity_id, channels_for_level(self.state.effective_level)[1])
+            return
+        await self.async_recalculate()
     @callback
     def _minute_tick(self, _now):
         if self._boost_active(): self._notify()
     def _read_humidity(self):
-        valid = []
+        values = {}
         for entity_id in self.cfg.get(CONF_HUMIDITY_SENSORS, []):
             state = self.hass.states.get(entity_id)
             if not state or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN): continue
-            try: valid.append((float(state.state), entity_id))
-            except (TypeError, ValueError): pass
-        return max(valid, default=(None, None), key=lambda item: item[0])
+            values[entity_id] = state.state
+        return highest_valid_humidity(values)
     def _silent_active(self):
         entity_id = self.cfg.get(CONF_SILENT_SCHEDULE)
         return bool(entity_id and self.hass.states.is_state(entity_id, STATE_ON))
@@ -92,16 +102,18 @@ class VillaventController:
         async with self._lock:
             target = channels_for_level(level)
             current = tuple(self.hass.states.is_state(self.cfg[k], STATE_ON) for k in (CONF_CH1, CONF_CH2))
-            changes = [i for i in (0, 1) if current[i] != target[i]]
-            changes.sort(key=lambda i: not target[i])  # energize first during low/medium swaps
-            for pos, i in enumerate(changes):
-                await self._set_switch(self.cfg[(CONF_CH1, CONF_CH2)[i]], target[i])
+            changes = relay_transition(current, target)
+            for pos, (i, turn_on) in enumerate(changes):
+                await self._set_switch(self.cfg[(CONF_CH1, CONF_CH2)[i]], turn_on)
                 if pos < len(changes) - 1: await asyncio.sleep(float(self.cfg.get(CONF_SWITCH_DELAY, DEFAULT_SWITCH_DELAY)))
             if changes: self._last_output_change = dt_util.utcnow(); self._schedule_settle()
-            indicators = [(e, target[0]) for e in self.cfg.get(CONF_INDICATORS_CH1, [])] + [(e, target[1]) for e in self.cfg.get(CONF_INDICATORS_CH2, [])]
-            for entity_id, turn_on in indicators:
-                state = self.hass.states.get(entity_id)
-                if state and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN): await self._set_switch(entity_id, turn_on)
+            await self._sync_indicators(*target)
+    async def _sync_indicators(self, ch1, ch2):
+        for entity_id in self.cfg.get(CONF_INDICATORS_CH1, []): await self._sync_indicator(entity_id, ch1)
+        for entity_id in self.cfg.get(CONF_INDICATORS_CH2, []): await self._sync_indicator(entity_id, ch2)
+    async def _sync_indicator(self, entity_id, turn_on):
+        state = self.hass.states.get(entity_id)
+        if indicator_needs_update(state.state if state else None, turn_on): await self._set_switch(entity_id, turn_on)
     async def _set_switch(self, entity_id, turn_on): await self.hass.services.async_call("switch", "turn_on" if turn_on else "turn_off", {"entity_id": entity_id}, blocking=True)
     async def async_set_manual_level(self, level): self.state.manual_level = level; await self.async_recalculate()
     async def async_start_boost(self):

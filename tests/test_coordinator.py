@@ -294,17 +294,6 @@ def test_starting_again_replaces_level_and_restarts_requested_duration():
     assert 1798 <= remaining <= 1800
 
 
-def test_toggle_from_inactive_starts_high_and_active_toggle_cancels():
-    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
-    asyncio.run(controller.async_toggle_boost())
-    assert controller.state.boost_level == control.LEVEL_HIGH
-    assert controller.state.effective_level == control.LEVEL_HIGH
-    asyncio.run(controller.async_toggle_boost())
-    assert controller.state.boost_level is None
-    assert controller.state.boost_until is None
-    assert controller.state.effective_level == control.LEVEL_LOW
-
-
 def test_default_boost_is_high_from_auto_medium_auto_low_and_manual_low():
     for humidity, manual in (
         (65, None),

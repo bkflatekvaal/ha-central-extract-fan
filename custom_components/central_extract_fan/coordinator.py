@@ -139,9 +139,6 @@ class CentralExtractFanController:
     async def async_cancel_boost(self):
         if self._boost_cancel: self._boost_cancel()
         self._boost_cancel, self.state.boost_until, self.state.boost_level = None, None, None; await self.async_recalculate()
-    async def async_toggle_boost(self):
-        if self._boost_active(): await self.async_cancel_boost()
-        else: await self.async_start_boost()
     async def _boost_finished(self, _now): self._boost_cancel, self.state.boost_until, self.state.boost_level = None, None, None; await self.async_recalculate()
     def _schedule_settle(self):
         if self._settle_cancel: self._settle_cancel()

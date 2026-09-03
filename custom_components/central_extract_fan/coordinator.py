@@ -53,6 +53,10 @@ class CentralExtractFanController:
         await self.async_recalculate(False)
     async def async_restore(self, manual, boost_until, boost_level=None):
         self.state.manual_level = manual
+        if self._boost_cancel: self._boost_cancel()
+        self._boost_cancel = None
+        self.state.boost_until = None
+        self.state.boost_level = None
         if boost_until and boost_until > dt_util.utcnow():
             self.state.boost_until = boost_until
             self.state.boost_level = boost_level if boost_level in (LEVEL_LOW, LEVEL_MEDIUM, LEVEL_HIGH) else LEVEL_HIGH
@@ -124,7 +128,9 @@ class CentralExtractFanController:
     async def _set_switch(self, entity_id, turn_on): await self.hass.services.async_call("switch", "turn_on" if turn_on else "turn_off", {"entity_id": entity_id}, blocking=True)
     async def async_set_manual_level(self, level): self.state.manual_level = level; await self.async_recalculate()
     async def async_start_boost(self, level=None, duration=None):
-        self.state.boost_level = level if level in (LEVEL_LOW, LEVEL_MEDIUM, LEVEL_HIGH) else LEVEL_HIGH
+        if level is None: level = LEVEL_HIGH
+        elif level not in (LEVEL_LOW, LEVEL_MEDIUM, LEVEL_HIGH): raise ValueError("Boost level must be low, medium, or high")
+        self.state.boost_level = level
         minutes = int(duration if duration is not None else self.cfg.get(CONF_BOOST_DURATION, DEFAULT_BOOST_DURATION))
         self.state.boost_until = dt_util.utcnow() + timedelta(minutes=minutes); self._schedule_boost(); await self.async_recalculate()
     def _schedule_boost(self):

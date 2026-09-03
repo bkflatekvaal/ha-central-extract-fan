@@ -5,6 +5,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 import importlib.util
+import inspect
 from pathlib import Path
 import sys
 from types import ModuleType, SimpleNamespace
@@ -267,6 +268,32 @@ def test_default_boost_is_always_high_and_explicit_medium_is_supported():
     assert controller.state.effective_level == control.LEVEL_MEDIUM
 
 
+def test_explicit_low_override_and_off_rejection():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "on"})
+    controller.state.manual_level = control.LEVEL_HIGH
+    asyncio.run(controller.async_start_boost(control.LEVEL_LOW))
+    assert controller.state.boost_level == control.LEVEL_LOW
+    assert controller.state.effective_level == control.LEVEL_LOW
+
+    try:
+        asyncio.run(controller.async_start_boost(control.LEVEL_OFF))
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Off must not be accepted as a timed override level")
+
+
+def test_starting_again_replaces_level_and_restarts_requested_duration():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    asyncio.run(controller.async_start_boost(control.LEVEL_LOW, 5))
+    first_until = controller.state.boost_until
+    asyncio.run(controller.async_start_boost(control.LEVEL_MEDIUM, 30))
+    assert controller.state.boost_level == control.LEVEL_MEDIUM
+    assert controller.state.boost_until > first_until
+    remaining = (controller.state.boost_until - datetime.now(UTC)).total_seconds()
+    assert 1798 <= remaining <= 1800
+
+
 def test_toggle_from_inactive_starts_high_and_active_toggle_cancels():
     controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
     asyncio.run(controller.async_toggle_boost())
@@ -333,8 +360,33 @@ def test_restore_active_boost_level_without_extending_and_ignore_expired():
     assert controller.state.effective_level == control.LEVEL_MEDIUM
 
     expired_controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    expired_controller.state.boost_until = future
+    expired_controller.state.boost_level = control.LEVEL_MEDIUM
     past = datetime.now(UTC) - timedelta(minutes=1)
     asyncio.run(expired_controller.async_restore(None, past, control.LEVEL_HIGH))
     assert expired_controller.state.boost_until is None
     assert expired_controller.state.boost_level is None
     assert expired_controller.state.effective_level == control.LEVEL_LOW
+
+
+def test_legacy_restore_without_boost_level_defaults_to_high():
+    controller, _hass = make_controller({"switch.ch1": "on", "switch.ch2": "off"})
+    future = datetime.now(UTC) + timedelta(minutes=12)
+    asyncio.run(controller.async_restore(None, future))
+    assert controller.state.boost_until == future
+    assert controller.state.boost_level == control.LEVEL_HIGH
+    assert controller.state.effective_level == control.LEVEL_HIGH
+
+
+def test_boost_controller_method_signatures_match_callers():
+    start = inspect.signature(coordinator.CentralExtractFanController.async_start_boost)
+    restore = inspect.signature(coordinator.CentralExtractFanController.async_restore)
+    assert tuple(start.parameters) == ("self", "level", "duration")
+    assert start.parameters["level"].default is None
+    assert start.parameters["duration"].default is None
+    assert tuple(restore.parameters) == ("self", "manual", "boost_until", "boost_level")
+    assert restore.parameters["boost_level"].default is None
+    setup_source = (ROOT / "__init__.py").read_text(encoding="utf-8")
+    assert "async_start_boost(level, call.data.get(\"duration\"))" in setup_source
+    fan_source = (ROOT / "fan.py").read_text(encoding="utf-8")
+    assert "async_restore(manual, boost, boost_level)" in fan_source

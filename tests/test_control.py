@@ -36,6 +36,7 @@ def test_precedence_manual_boost_silent_auto():
     assert effective(3, None, None, True, 1) == (1, "humidity+silent")
     assert effective(1, None, 3, True, 1) == (3, "boost")
     assert effective(3, 0, 3, True, 1) == (3, "boost")
+    assert effective(3, 3, 1, True, 0) == (1, "boost")
     assert effective(1, 2, None, True, 1) == (2, "manual")
     assert effective(3, None, None, False, 1) == (3, "humidity")
 

@@ -36,7 +36,7 @@ The highest valid humidity reading controls the fan. If none is valid, the fault
 
 ## Modes, boost, and silent hours
 
-The fan presets are **Auto**, **Low**, **Medium**, and **High** by default. Enable **Show Off in fan controls** to expose the Off preset and turn-off control. Selecting a speed creates a persistent manual override; select Auto (or turn on Automatic control) to resume regulation. Normal automatic humidity control never requests Off.
+The fan presets are **Auto**, **Low**, **Medium**, and **High** by default. Enable **Show and allow Off in fan controls** to expose and permit the Off preset and turn-off control. When disabled, zero-percent and turn-off commands resolve safely to Low. Selecting a speed creates a persistent manual override; select Auto (or turn on Automatic control) to resume regulation. Normal automatic humidity control never requests Off.
 
 Precedence is: **Boost → Manual override → Automatic humidity control**. Silent hours cap automatic control only; they never cap Boost or a manual level. Boost preserves the selected manual/automatic mode. When boost expires or is cancelled, the controller recalculates from current humidity and schedule state instead of restoring a stale speed.
 

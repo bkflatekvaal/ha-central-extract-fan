@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import callback
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event, async_track_time_interval
 from homeassistant.util import dt as dt_util
@@ -13,6 +13,7 @@ from .control import channels_for_level, effective_level, highest_valid_humidity
 @dataclass
 class ControllerState:
     requested_level: int = LEVEL_LOW
+    # Effective control target, not confirmation of physical relay state.
     effective_level: int = LEVEL_LOW
     control_humidity: float | None = None
     humidity_source: str | None = None
@@ -42,14 +43,17 @@ class CentralExtractFanController:
         for cb in tuple(self._callbacks): cb()
 
     async def async_initialize(self):
-        physical = level_from_channels(self.hass.states.is_state(self.cfg[CONF_CH1], STATE_ON), self.hass.states.is_state(self.cfg[CONF_CH2], STATE_ON))
-        self.state.effective_level, self.state.requested_level = physical, max(LEVEL_LOW, physical)
+        current = self._read_channels()
+        if current is not None:
+            physical = level_from_channels(*current)
+            self.state.effective_level, self.state.requested_level = physical, max(LEVEL_LOW, physical)
         indicators = self.cfg.get(CONF_INDICATORS_CH1, []) + self.cfg.get(CONF_INDICATORS_CH2, [])
-        inputs = list(self.cfg.get(CONF_HUMIDITY_SENSORS, [])) + [self.cfg[k] for k in (CONF_SILENT_SCHEDULE, CONF_RPM_SENSOR) if self.cfg.get(k)] + indicators
+        inputs = list(self.cfg.get(CONF_HUMIDITY_SENSORS, [])) + [self.cfg[k] for k in (CONF_SILENT_SCHEDULE, CONF_RPM_SENSOR) if self.cfg.get(k)] + indicators + [self.cfg[CONF_CH1], self.cfg[CONF_CH2]]
         if inputs: self._unsubs.append(async_track_state_change_event(self.hass, inputs, self._state_changed))
         self._unsubs.append(async_track_time_interval(self.hass, self._minute_tick, timedelta(minutes=1)))
         if self.cfg.get(CONF_RPM_SENSOR): self._schedule_settle()
-        await self._sync_indicators(*channels_for_level(physical))
+        async with self._lock:
+            if current is not None: await self._sync_indicators(*current)
         await self.async_recalculate(False)
     async def async_restore(self, manual, boost_until, boost_level=None):
         self.state.manual_level = manual
@@ -67,14 +71,19 @@ class CentralExtractFanController:
         for cancel in (self._boost_cancel, self._settle_cancel):
             if cancel: cancel()
     @callback
-    def _state_changed(self, event): self.hass.async_create_task(self._handle_state_change(event))
+    def _state_changed(self, event):
+        if event.data["entity_id"] in (self.cfg[CONF_CH1], self.cfg[CONF_CH2]):
+            old, new = event.data.get("old_state"), event.data.get("new_state")
+            if old is not None and new is not None and old.state == new.state: return
+        # Never await regulation in the service's state-change callback.
+        self.hass.async_create_task(self._handle_state_change(event))
     async def _handle_state_change(self, event):
         entity_id = event.data["entity_id"]
-        if entity_id in self.cfg.get(CONF_INDICATORS_CH1, []):
-            await self._sync_indicator(entity_id, channels_for_level(self.state.effective_level)[0])
-            return
-        if entity_id in self.cfg.get(CONF_INDICATORS_CH2, []):
-            await self._sync_indicator(entity_id, channels_for_level(self.state.effective_level)[1])
+        if entity_id in self.cfg.get(CONF_INDICATORS_CH1, []) + self.cfg.get(CONF_INDICATORS_CH2, []):
+            async with self._lock:
+                if self._outputs_match(self.state.effective_level):
+                    channel = 0 if entity_id in self.cfg.get(CONF_INDICATORS_CH1, []) else 1
+                    await self._sync_indicator(entity_id, channels_for_level(self.state.effective_level)[channel])
             return
         await self.async_recalculate()
     @callback
@@ -93,39 +102,60 @@ class CentralExtractFanController:
     def _boost_active(self): return bool(self.state.boost_until and self.state.boost_until > dt_util.utcnow())
 
     async def async_recalculate(self, apply_output=True):
-        humidity, source = self._read_humidity()
-        self.state.control_humidity, self.state.humidity_source, self.state.humidity_fault = humidity, source, humidity is None
-        self.state.requested_level = hysteresis_level(humidity, self.state.requested_level, float(self.cfg.get(CONF_MEDIUM_THRESHOLD, DEFAULT_MEDIUM_THRESHOLD)), float(self.cfg.get(CONF_HIGH_THRESHOLD, DEFAULT_HIGH_THRESHOLD)), float(self.cfg.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)))
-        silent_max = int(self.cfg.get(CONF_SILENT_MAX_LEVEL, DEFAULT_SILENT_MAX_LEVEL))
-        active_boost_level = self.state.boost_level if self._boost_active() else None
-        level, source_name = effective_level(self.state.requested_level, self.state.manual_level, active_boost_level, self._silent_active(), silent_max)
-        self.state.effective_level = level
-        self.state.control_source = "fallback" if self.state.humidity_fault and source_name == "humidity" else source_name
-        if apply_output and not self._outputs_match(level): await self._apply_level(level)
-        self._check_rpm(); self._notify()
+        # Read inputs after waiting: queued relay events must not apply stale targets.
+        async with self._lock:
+            humidity, source = self._read_humidity()
+            self.state.control_humidity, self.state.humidity_source, self.state.humidity_fault = humidity, source, humidity is None
+            self.state.requested_level = hysteresis_level(humidity, self.state.requested_level, float(self.cfg.get(CONF_MEDIUM_THRESHOLD, DEFAULT_MEDIUM_THRESHOLD)), float(self.cfg.get(CONF_HIGH_THRESHOLD, DEFAULT_HIGH_THRESHOLD)), float(self.cfg.get(CONF_HYSTERESIS, DEFAULT_HYSTERESIS)))
+            silent_max = int(self.cfg.get(CONF_SILENT_MAX_LEVEL, DEFAULT_SILENT_MAX_LEVEL))
+            active_boost_level = self.state.boost_level if self._boost_active() else None
+            level, source_name = effective_level(self.state.requested_level, self.state.manual_level, active_boost_level, self._silent_active(), silent_max)
+            self.state.effective_level = level
+            self.state.control_source = "fallback" if self.state.humidity_fault and source_name == "humidity" else source_name
+            if apply_output: await self._apply_level_locked(level)
+            self._check_rpm(); self._notify()
+    def _read_channels(self):
+        states = [self.hass.states.get(self.cfg[key]) for key in (CONF_CH1, CONF_CH2)]
+        if any(state is None or state.state not in (STATE_ON, STATE_OFF) for state in states):
+            return None
+        return tuple(state.state == STATE_ON for state in states)
     def _outputs_match(self, level):
-        target = channels_for_level(level)
-        return all(self.hass.states.is_state(self.cfg[key], STATE_ON) == target[i] for i, key in enumerate((CONF_CH1, CONF_CH2)))
+        return self._read_channels() == channels_for_level(level)
     async def _apply_level(self, level):
         async with self._lock:
-            target = channels_for_level(level)
-            current = tuple(self.hass.states.is_state(self.cfg[k], STATE_ON) for k in (CONF_CH1, CONF_CH2))
-            changes = relay_transition(current, target)
-            for pos, (i, turn_on) in enumerate(changes):
-                await self._set_switch(self.cfg[(CONF_CH1, CONF_CH2)[i]], turn_on)
-                break_before_make = len(changes) == 2 and changes[0][1] is False and changes[1][1] is True
-                if pos == 0 and break_before_make:
-                    delay_ms = int(self.cfg.get(CONF_RELAY_SWITCH_DELAY_MS, DEFAULT_RELAY_SWITCH_DELAY_MS))
-                    if delay_ms: await asyncio.sleep(delay_ms / 1000)
-            if changes: self._last_output_change = dt_util.utcnow(); self._schedule_settle()
-            await self._sync_indicators(*target)
+            return await self._apply_level_locked(level)
+    async def _apply_level_locked(self, level):
+        target = channels_for_level(level)
+        current = self._read_channels()
+        if current is None: return False
+        changes = relay_transition(current, target)
+        for pos, (i, turn_on) in enumerate(changes):
+            # Recheck both channels, including after the break-before-make delay.
+            if self._read_channels() != current: return False
+            if not await self._set_switch(self.cfg[(CONF_CH1, CONF_CH2)[i]], turn_on): return False
+            current = tuple(turn_on if index == i else value for index, value in enumerate(current))
+            break_before_make = len(changes) == 2 and changes[0][1] is False and changes[1][1] is True
+            if pos == 0 and break_before_make:
+                delay_ms = int(self.cfg.get(CONF_RELAY_SWITCH_DELAY_MS, DEFAULT_RELAY_SWITCH_DELAY_MS))
+                if delay_ms: await asyncio.sleep(delay_ms / 1000)
+            if self._read_channels() != current: return False
+        if not self._outputs_match(level): return False
+        if changes: self._last_output_change = dt_util.utcnow(); self._schedule_settle()
+        await self._sync_indicators(*target)
+        return True
     async def _sync_indicators(self, ch1, ch2):
-        for entity_id in self.cfg.get(CONF_INDICATORS_CH1, []): await self._sync_indicator(entity_id, ch1)
-        for entity_id in self.cfg.get(CONF_INDICATORS_CH2, []): await self._sync_indicator(entity_id, ch2)
+        for key, turn_on in ((CONF_INDICATORS_CH1, ch1), (CONF_INDICATORS_CH2, ch2)):
+            for entity_id in self.cfg.get(key, []):
+                if self._read_channels() != (ch1, ch2): return
+                await self._sync_indicator(entity_id, turn_on)
     async def _sync_indicator(self, entity_id, turn_on):
         state = self.hass.states.get(entity_id)
         if indicator_needs_update(state.state if state else None, turn_on): await self._set_switch(entity_id, turn_on)
-    async def _set_switch(self, entity_id, turn_on): await self.hass.services.async_call("switch", "turn_on" if turn_on else "turn_off", {"entity_id": entity_id}, blocking=True)
+    async def _set_switch(self, entity_id, turn_on):
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state not in (STATE_ON, STATE_OFF): return False
+        await self.hass.services.async_call("switch", "turn_on" if turn_on else "turn_off", {"entity_id": entity_id}, blocking=True)
+        return True
     async def async_set_manual_level(self, level): self.state.manual_level = level; await self.async_recalculate()
     async def async_start_boost(self, level=None, duration=None):
         if level is None: level = LEVEL_HIGH

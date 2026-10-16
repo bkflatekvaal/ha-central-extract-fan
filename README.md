@@ -149,6 +149,6 @@ For example, during a silent-hours period the sensors might show **Requested lev
 
 ## RPM diagnostics and indicators
 
-RPM feedback is diagnostic only. Expected RPM and whole-number RPM deviation remain live during the settling period; only fan-fault evaluation is delayed. RPM diagnostics never alter speed. Indicator switches mirror commanded CH1/CH2 states; unavailable indicators are skipped.
+RPM feedback is diagnostic only. Expected RPM and whole-number RPM deviation remain live during the settling period; only fan-fault evaluation is delayed. RPM diagnostics never alter speed. Indicator switches synchronize only when both relays confirm the target CH1/CH2 states; unavailable indicators are skipped.
 
-At startup the physical speed is derived from CH1/CH2 without writing relays. Home Assistant restoration then restores manual/boost state and the controller safely converges to the required level.
+At startup the physical speed is derived from CH1/CH2 only when both relays report On or Off, without writing relays. Home Assistant restoration then restores manual/boost state and the controller safely converges to the required level. Missing, Unknown, or Unavailable relays defer output control until both channels have valid states. Relay state changes automatically trigger recalculation and recovery, including after an interruption during switching. The effective level remains the control target, not confirmation that a deferred transition has physically completed.
